@@ -68,6 +68,20 @@ import com.hbfr.figurinhas.provider.StickerContentProvider
 import com.hbfr.figurinhas.render.StickerLayout
 import com.hbfr.figurinhas.render.StickerRenderer
 import com.hbfr.figurinhas.ui.theme.GradientButton
+import com.hbfr.figurinhas.media.FrameReader
+import com.hbfr.figurinhas.render.AnimatedWebP
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.layout.offset
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material3.RangeSlider
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
+import kotlinx.coroutines.delay
+import java.util.Locale
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -78,30 +92,92 @@ import kotlin.math.sin
 
 private val WHATSAPP_EMOJIS = listOf("😀", "😂", "🤣", "😍", "🥰", "😎", "😭", "😡", "😱", "🤔", "😴", "🥳", "👍", "🙏", "👏", "❤️", "🔥", "🎉", "💀", "🤡")
 
+
+private enum class Tab(val label: Int) { Trim(R.string.tab_trim), Adjust(R.string.tab_adjust), Text(R.string.tab_text), Emoji(R.string.tab_emoji) }
+
 @Composable
 fun EditorScreen(uri: Uri, store: StickerStore, onBack: () -> Unit, onSaved: (String) -> Unit, onError: (String) -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val cs = MaterialTheme.colorScheme
-    var bitmap by remember { mutableStateOf<Bitmap?>(null) }
+
+    // Origem: foto parada ou leitor de GIF/vídeo.
+    var still by remember { mutableStateOf<Bitmap?>(null) }
+    var reader by remember { mutableStateOf<FrameReader?>(null) }
+    var loaded by remember { mutableStateOf(false) }
+    val animated = reader != null
+    val logicalW = reader?.width ?: still?.width ?: 1
+    val logicalH = reader?.height ?: still?.height ?: 1
+
+    // Trecho (só animadas).
+    var trimStart by remember { mutableLongStateOf(0L) }
+    var trimLength by remember { mutableLongStateOf(0L) }
+    var speed by remember { mutableFloatStateOf(1f) }
+    var frames by remember { mutableStateOf<List<Bitmap>>(emptyList()) }
+    var framesLoading by remember { mutableStateOf(false) }
+    var frameIdx by remember { mutableIntStateOf(0) }
+    var strip by remember { mutableStateOf<List<Bitmap>>(emptyList()) }
+
     var layout by remember { mutableStateOf(StickerLayout()) }
-    var tab by remember { mutableIntStateOf(0) }
+    var tab by remember { mutableStateOf(Tab.Adjust) }
     var moveEmoji by remember { mutableStateOf(false) }
     var saving by remember { mutableStateOf(false) }
+    var progress by remember { mutableFloatStateOf(0f) }
     val emojis = remember { mutableStateListOf<String>() }
-    var packId by remember { mutableStateOf(store.suggestedPackId(animated = false)) }
+    var packId by remember { mutableStateOf<String?>(null) }
     val loadError = stringResource(R.string.load_error)
+    val tooBig = stringResource(R.string.too_big)
     val names = StickerStore.DefaultNames(
         stringResource(R.string.default_pack), stringResource(R.string.default_pack_animated), stringResource(R.string.numbered_pack))
 
     LaunchedEffect(uri) {
-        val bmp = withContext(Dispatchers.IO) { runCatching { StickerRenderer.decode(context, uri) }.getOrNull() }
-        if (bmp == null) { onError(loadError); return@LaunchedEffect }
-        bitmap = bmp
-        layout = StickerLayout(scale = StickerRenderer.fitScale(bmp))
+        val r = withContext(Dispatchers.IO) { runCatching { FrameReader.open(context, uri) }.getOrNull() }
+        if (r != null && r.durationMs > 0 && r.width > 0) {
+            reader = r
+            trimLength = minOf(r.durationMs, if (r is com.hbfr.figurinhas.media.VideoReader) 5_000L else AnimatedWebP.MAX_DURATION_MS)
+            tab = Tab.Trim
+            layout = StickerLayout(scale = StickerRenderer.fitScale(r.width, r.height))
+            packId = store.suggestedPackId(animated = true)
+            strip = withContext(Dispatchers.IO) {
+                (0 until 8).mapNotNull { i -> r.thumbnail(r.durationMs * i / 8, 96) }
+            }
+        } else {
+            r?.close()
+            val bmp = withContext(Dispatchers.IO) { runCatching { StickerRenderer.decode(context, uri) }.getOrNull() }
+            if (bmp == null) { onError(loadError); return@LaunchedEffect }
+            still = bmp
+            layout = StickerLayout(scale = StickerRenderer.fitScale(bmp))
+            packId = store.suggestedPackId(animated = false)
+        }
+        loaded = true
     }
-    val fit = bitmap?.let { StickerRenderer.fitScale(it) } ?: 1f
-    val fill = bitmap?.let { StickerRenderer.SIZE / min(it.width, it.height).toFloat() } ?: 1f
+    DisposableEffect(Unit) { onDispose { reader?.close() } }
+
+    // Quadros da prévia (320 px) do trecho escolhido; recarrega pouco depois de mexer.
+    LaunchedEffect(reader, trimStart, trimLength) {
+        val r = reader ?: return@LaunchedEffect
+        delay(200)
+        framesLoading = true
+        val list = ArrayList<Bitmap>()
+        withContext(Dispatchers.Default) {
+            r.read(trimStart, trimLength, AnimatedWebP.STEP_MS, 320) { f, _ -> list.add(f.copy(Bitmap.Config.ARGB_8888, false)) }
+        }
+        val old = frames
+        frames = list
+        frameIdx = 0
+        framesLoading = false
+        old.forEach { it.recycle() }
+    }
+    LaunchedEffect(frames, speed) {
+        if (frames.size < 2) return@LaunchedEffect
+        while (true) {
+            delay(AnimatedWebP.frameDuration(speed))
+            frameIdx = (frameIdx + 1) % frames.size
+        }
+    }
+
+    val fit = StickerRenderer.fitScale(logicalW, logicalH)
+    val fill = StickerRenderer.fillScale(logicalW, logicalH)
 
     Column(Modifier.fillMaxSize().imePadding()) {
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = 4.dp, vertical = 4.dp)) {
@@ -111,10 +187,8 @@ fun EditorScreen(uri: Uri, store: StickerStore, onBack: () -> Unit, onSaved: (St
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp)) {
             // Prévia: o mesmo desenho que vira o arquivo, em escala.
             Box(Modifier.fillMaxWidth().aspectRatio(1f).clip(MaterialTheme.shapes.extraLarge).checker()) {
-                val bmp = bitmap
-                if (bmp == null) {
-                    CircularProgressIndicator(Modifier.align(Alignment.Center))
-                } else {
+                val bmp = if (animated) frames.getOrNull(frameIdx.coerceAtMost(frames.size - 1)) else still
+                if (bmp != null) {
                     Canvas(Modifier.fillMaxSize().pointerInput(moveEmoji) {
                         detectTransformGestures { centroid, pan, zoom, rotation ->
                             val f = size.width / StickerRenderer.SIZE.toFloat()
@@ -138,26 +212,36 @@ fun EditorScreen(uri: Uri, store: StickerStore, onBack: () -> Unit, onSaved: (St
                         drawIntoCanvas { cv ->
                             val n = cv.nativeCanvas
                             n.save(); n.scale(f, f)
-                            StickerRenderer.draw(n, bmp, layout)
+                            StickerRenderer.draw(n, bmp, layout, logicalW)
                             n.restore()
                         }
                     }
                 }
+                if (!loaded || (animated && framesLoading && frames.isEmpty())) CircularProgressIndicator(Modifier.align(Alignment.Center))
             }
             Text(stringResource(R.string.editor_hint), style = MaterialTheme.typography.bodySmall,
                 color = cs.onSurfaceVariant, modifier = Modifier.padding(top = 6.dp, bottom = 10.dp))
 
-            val tabs = listOf(R.string.tab_adjust, R.string.tab_text, R.string.tab_emoji)
+            val tabs = if (animated) Tab.entries else listOf(Tab.Adjust, Tab.Text, Tab.Emoji)
             SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
                 tabs.forEachIndexed { i, t ->
-                    SegmentedButton(tab == i, { tab = i; moveEmoji = i == 2 && layout.emoji.isNotBlank() },
-                        SegmentedButtonDefaults.itemShape(i, tabs.size)) { Text(stringResource(t)) }
+                    SegmentedButton(tab == t, { tab = t; moveEmoji = t == Tab.Emoji && layout.emoji.isNotBlank() },
+                        SegmentedButtonDefaults.itemShape(i, tabs.size)) { Text(stringResource(t.label), maxLines = 1) }
                 }
             }
             Spacer(Modifier.height(10.dp))
 
             when (tab) {
-                0 -> {
+                Tab.Trim -> reader?.let { r ->
+                    TrimPanel(r.durationMs, trimStart, trimLength, speed, strip, framesLoading,
+                        onTrim = { s, l -> trimStart = s; trimLength = l },
+                        onSpeed = { sp ->
+                            speed = sp
+                            val maxLen = AnimatedWebP.maxSourceLength(sp)
+                            if (trimLength > maxLen) trimLength = maxLen
+                        })
+                }
+                Tab.Adjust -> {
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         ToolTile(painterResource(R.drawable.ic_rotate), R.string.rotate) {
                             layout = layout.copy(rotation = (layout.rotation + 90f) % 360f)
@@ -187,14 +271,14 @@ fun EditorScreen(uri: Uri, store: StickerStore, onBack: () -> Unit, onSaved: (St
                             onValueChange = { layout = layout.copy(scale = fit * it) })
                     }
                 }
-                1 -> Panel {
+                Tab.Text -> Panel {
                     OutlinedTextField(layout.topText, { layout = layout.copy(topText = it.take(60)) }, Modifier.fillMaxWidth(),
                         label = { Text(stringResource(R.string.top_text)) }, singleLine = true)
                     Spacer(Modifier.height(8.dp))
                     OutlinedTextField(layout.bottomText, { layout = layout.copy(bottomText = it.take(60)) }, Modifier.fillMaxWidth(),
                         label = { Text(stringResource(R.string.bottom_text)) }, singleLine = true)
                 }
-                else -> Panel {
+                Tab.Emoji -> Panel {
                     OutlinedTextField(layout.emoji, { v ->
                         layout = layout.copy(emoji = v.take(8)); moveEmoji = v.isNotBlank()
                     }, Modifier.fillMaxWidth(), label = { Text(stringResource(R.string.emoji_on_sticker)) }, singleLine = true)
@@ -222,33 +306,46 @@ fun EditorScreen(uri: Uri, store: StickerStore, onBack: () -> Unit, onSaved: (St
 
         // Barra de baixo: "Salvar em" + botão.
         Column(Modifier.fillMaxWidth().background(cs.surfaceContainerLow).navigationBarsPadding().padding(horizontal = 16.dp, vertical = 10.dp)) {
-            PackPicker(store, packId, names.static) { packId = it }
+            PackPicker(store, animated, packId, if (animated) names.animated else names.static) { packId = it }
             Spacer(Modifier.height(8.dp))
             GradientButton(
-                enabled = bitmap != null && !saving,
+                enabled = loaded && !saving && (!animated || frames.isNotEmpty()),
                 modifier = Modifier.fillMaxWidth(),
                 onClick = {
-                    val bmp = bitmap ?: return@GradientButton
                     saving = true
+                    progress = 0f
                     scope.launch {
                         val l = layout
+                        var note: String? = null
                         val webp = withContext(Dispatchers.Default) {
-                            val out = StickerRenderer.render(bmp, l)
-                            StickerRenderer.encodeStaticWebP(out).also { out.recycle() }
+                            val r = reader
+                            if (r != null) {
+                                val res = AnimatedWebP.encode(r, l, trimStart, trimLength, speed) { p -> progress = p }
+                                if (res != null && res.sourceLengthMs + AnimatedWebP.STEP_MS < trimLength) {
+                                    val secs = String.format(Locale.getDefault(), "%.1f", res.sourceLengthMs / speed / 1000f)
+                                    note = context.getString(R.string.trimmed, secs)
+                                }
+                                res?.bytes
+                            } else {
+                                val out = StickerRenderer.render(still!!, l)
+                                StickerRenderer.encodeStaticWebP(out).also { out.recycle() }
+                            }
                         }
+                        if (webp == null) { saving = false; onError(tooBig); return@launch }
                         val saved = withContext(Dispatchers.IO) {
-                            store.add(webp, animated = false, emojis = emojis.toList(), packId = packId, defaultNames = names)
+                            store.add(webp, animated = animated, emojis = emojis.toList(), packId = packId, defaultNames = names)
                                 .also { StickerContentProvider.notifyChanged(context) }
                         }
                         val packName = store.state.value.packs.firstOrNull { it.id == saved.packId }?.name.orEmpty()
-                        onSaved(context.getString(R.string.saved, packName))
+                        onSaved(listOfNotNull(context.getString(R.string.saved, packName), note).joinToString(" "))
                     }
                 },
             ) {
                 if (saving) {
                     CircularProgressIndicator(Modifier.size(20.dp), color = Color.White, strokeWidth = 2.dp)
                     Spacer(Modifier.width(10.dp))
-                    Text(stringResource(R.string.saving), style = MaterialTheme.typography.labelLarge)
+                    Text(if (animated) stringResource(R.string.encoding, (progress * 100).toInt()) else stringResource(R.string.saving),
+                        style = MaterialTheme.typography.labelLarge)
                 } else {
                     Icon(Icons.Default.Check, null, Modifier.size(20.dp))
                     Spacer(Modifier.width(8.dp))
@@ -256,6 +353,61 @@ fun EditorScreen(uri: Uri, store: StickerStore, onBack: () -> Unit, onSaved: (St
                 }
             }
         }
+    }
+}
+
+/** Trecho: tira de quadros do vídeo inteiro, seletor de início e fim, ajuste fino de um quadro e velocidade. */
+@Composable
+private fun TrimPanel(
+    duration: Long, start: Long, length: Long, speed: Float, strip: List<Bitmap>, loading: Boolean,
+    onTrim: (Long, Long) -> Unit, onSpeed: (Float) -> Unit,
+) {
+    val cs = MaterialTheme.colorScheme
+    val maxLen = minOf(duration, AnimatedWebP.maxSourceLength(speed))
+    val minLen = minOf(duration, 500L)
+    var range by remember(start, length) { mutableStateOf(start.toFloat()..(start + length).toFloat()) }
+    fun secs(ms: Long) = String.format(Locale.getDefault(), "%.1f s", ms / 1000f)
+
+    Panel {
+        Box(Modifier.fillMaxWidth().height(48.dp).clip(MaterialTheme.shapes.small).background(cs.surfaceContainerHigh)) {
+            Row(Modifier.fillMaxSize()) {
+                strip.forEach { b ->
+                    Image(b.asImageBitmap(), null, Modifier.weight(1f).fillMaxSize(), contentScale = ContentScale.Crop)
+                }
+            }
+        }
+        RangeSlider(
+            value = range,
+            valueRange = 0f..duration.toFloat(),
+            onValueChange = { v ->
+                var s = v.start; var e = v.endInclusive
+                val movedStart = s != range.start
+                if (e - s > maxLen) { if (movedStart) e = s + maxLen else s = e - maxLen }
+                if (e - s < minLen) { if (movedStart) s = e - minLen else e = s + minLen }
+                s = s.coerceIn(0f, duration.toFloat()); e = e.coerceIn(s, duration.toFloat())
+                range = s..e
+            },
+            onValueChangeFinished = { onTrim(range.start.toLong(), (range.endInclusive - range.start).toLong()) },
+        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            IconButton(onClick = {
+                val s = (start - AnimatedWebP.STEP_MS).coerceAtLeast(0L); onTrim(s, length)
+            }) { Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, stringResource(R.string.frame_back)) }
+            Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
+                Text("${stringResource(R.string.trim_start)} ${secs(range.start.toLong())} · ${stringResource(R.string.trim_length)} ${secs((range.endInclusive - range.start).toLong())}",
+                    style = MaterialTheme.typography.bodyMedium)
+                if (loading) Text(stringResource(R.string.loading_frames), style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant)
+            }
+            IconButton(onClick = {
+                val s = (start + AnimatedWebP.STEP_MS).coerceAtMost(duration - length).coerceAtLeast(0L); onTrim(s, length)
+            }) { Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, stringResource(R.string.frame_forward)) }
+        }
+        Spacer(Modifier.height(4.dp))
+        Row {
+            Text(stringResource(R.string.speed), Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+            Text(String.format(Locale.getDefault(), "%.2gx", speed), style = MaterialTheme.typography.bodyMedium, color = cs.onSurfaceVariant)
+        }
+        Slider(value = speed, valueRange = 0.5f..2f, steps = 5, onValueChange = onSpeed)
     }
 }
 
@@ -280,9 +432,9 @@ private fun RowScope.ToolTile(icon: Painter, label: Int, onClick: () -> Unit) {
 }
 
 @Composable
-private fun PackPicker(store: StickerStore, selected: String?, defaultName: String, onPick: (String) -> Unit) {
+private fun PackPicker(store: StickerStore, animated: Boolean, selected: String?, defaultName: String, onPick: (String) -> Unit) {
     val cs = MaterialTheme.colorScheme
-    val packs = store.packsAccepting(animated = false)
+    val packs = store.packsAccepting(animated)
     var open by remember { mutableStateOf(false) }
     val current = packs.firstOrNull { it.id == selected }?.info?.name ?: defaultName
     Box {

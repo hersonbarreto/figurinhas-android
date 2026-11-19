@@ -46,6 +46,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -200,22 +201,32 @@ private fun SendButton(enabled: Boolean, added: Boolean, onClick: () -> Unit) {
 
 @Composable
 private fun StickerThumb(s: StoredSticker, store: StickerStore, onClick: () -> Unit) {
-    val img by rememberThumbnail(store.stickerFile(s), sample = 2)
     Box(Modifier.size(THUMB).clip(MaterialTheme.shapes.small).checker().clickable(onClick = onClick)) {
-        img?.let { Image(it, null, Modifier.fillMaxSize().padding(3.dp)) }
+        if (s.animated) {
+            val px = with(LocalDensity.current) { THUMB.roundToPx() }
+            AnimatedSticker(store.stickerFile(s), px, Modifier.fillMaxSize().padding(3.dp))
+        } else {
+            val img by rememberThumbnail(store.stickerFile(s), sample = 2)
+            img?.let { Image(it, null, Modifier.fillMaxSize().padding(3.dp)) }
+        }
     }
 }
 
 @Composable
 private fun StickerDialog(s: StoredSticker, store: StickerStore, onDismiss: () -> Unit, onDelete: () -> Unit) {
-    val img by rememberThumbnail(store.stickerFile(s), sample = 1)
+    val img = if (s.animated) null else rememberThumbnail(store.stickerFile(s), sample = 1).value
     var confirm by remember { mutableStateOf(false) }
     AlertDialog(
         onDismissRequest = onDismiss,
         containerColor = MaterialTheme.colorScheme.surfaceContainer,
         text = {
             Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
-                Box(Modifier.size(240.dp).clip(MaterialTheme.shapes.large).checker()) { img?.let { Image(it, null, Modifier.fillMaxSize()) } }
+                Box(Modifier.size(240.dp).clip(MaterialTheme.shapes.large).checker()) {
+                    if (s.animated) {
+                        val px = with(LocalDensity.current) { 240.dp.roundToPx() }
+                        AnimatedSticker(store.stickerFile(s), px, Modifier.fillMaxSize())
+                    } else img?.let { Image(it, null, Modifier.fillMaxSize()) }
+                }
                 Spacer(Modifier.height(8.dp))
                 Text(s.emojis.joinToString(" "), style = MaterialTheme.typography.titleLarge)
                 if (confirm) Text(stringResource(R.string.delete_sticker_q), modifier = Modifier.padding(top = 8.dp))

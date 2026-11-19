@@ -48,7 +48,9 @@ object StickerRenderer {
     }
 
     /** Escala que faz a foto caber inteira no quadrado. */
-    fun fitScale(bmp: Bitmap) = (SIZE - 2 * MARGIN) / max(bmp.width, bmp.height).toFloat()
+    fun fitScale(bmp: Bitmap) = fitScale(bmp.width, bmp.height)
+    fun fitScale(w: Int, h: Int) = (SIZE - 2 * MARGIN) / max(w, h).toFloat()
+    fun fillScale(w: Int, h: Int) = SIZE / min(w, h).toFloat()
 
     /** Lê a foto já reduzida e com a orientação certa. Chamar fora da thread principal. */
     fun decode(context: Context, uri: Uri): Bitmap {
@@ -66,11 +68,13 @@ object StickerRenderer {
     }
 
     /** Desenha a figurinha no canvas, em coordenadas de 512. A tela do editor usa a mesma função. */
-    fun draw(canvas: Canvas, bmp: Bitmap, l: StickerLayout) {
+    /** [logicalWidth]: largura do original. Quadros reduzidos (vídeo, GIF) são ampliados para a mesma posição. */
+    fun draw(canvas: Canvas, bmp: Bitmap, l: StickerLayout, logicalWidth: Int = bmp.width) {
+        val s = l.scale * logicalWidth / bmp.width.toFloat()
         canvas.save()
         canvas.translate(l.centerX, l.centerY)
         canvas.rotate(l.rotation)
-        canvas.scale(if (l.mirrored) -l.scale else l.scale, l.scale)
+        canvas.scale(if (l.mirrored) -s else s, s)
         canvas.drawBitmap(bmp, -bmp.width / 2f, -bmp.height / 2f, imagePaint)
         canvas.restore()
 

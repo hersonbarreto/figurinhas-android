@@ -60,4 +60,14 @@
         <item quantity="many">Faltan %d stickers para enviar a WhatsApp</item>
         <item quantity="other">Faltan %d stickers para enviar a WhatsApp</item>
     </plurals>
+    <string name="tab_trim">Fragmento</string>
+    <string name="speed">Velocidad</string>
+    <string name="trim_start">Inicio</string>
+    <string name="trim_length">Duración</string>
+    <string name="encoding">Creando animado… %1$d%%</string>
+    <string name="too_big">No cupo en 500 KB. Prueba un fragmento más corto.</string>
+    <string name="trimmed">Para caber en WhatsApp, el animado quedó en %1$s s.</string>
+    <string name="frame_back">Un cuadro atrás</string>
+    <string name="frame_forward">Un cuadro adelante</string>
+    <string name="loading_frames">Leyendo cuadros…</string>
 </resources>

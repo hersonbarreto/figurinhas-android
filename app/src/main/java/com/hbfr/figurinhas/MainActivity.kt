@@ -81,7 +81,7 @@ class MainActivity : ComponentActivity() {
                         if (uri == null) {
                             Box(Modifier.weight(1f).navigationBarsPadding()) {
                                 HomeScreen(state, store, refreshKey,
-                                    onGallery = { picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
+                                    onGallery = { picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageAndVideo)) },
                                     onSend = { pack ->
                                         val apps = WhatsAppSender.installed(this@MainActivity)
                                         when (apps.size) {

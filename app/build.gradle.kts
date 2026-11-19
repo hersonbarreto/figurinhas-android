@@ -7,6 +7,7 @@ plugins {
 android {
     namespace = "com.hbfr.figurinhas"
     compileSdk = 35
+    ndkVersion = "27.2.12479018"
 
     defaultConfig {
         applicationId = "com.hbfr.figurinhas"
@@ -16,6 +17,7 @@ android {
         versionName = "0.1"
         // O ContentProvider que o WhatsApp lê. O WhatsApp exige este formato.
         manifestPlaceholders["contentProviderAuthority"] = "com.hbfr.figurinhas.stickercontentprovider"
+        ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86_64") }
         buildConfigField("String", "CONTENT_PROVIDER_AUTHORITY", "\"com.hbfr.figurinhas.stickercontentprovider\"")
     }
 
@@ -27,6 +29,9 @@ android {
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
+    }
+    externalNativeBuild {
+        cmake { path = file("src/main/cpp/CMakeLists.txt"); version = "3.22.1" }
     }
     buildFeatures {
         compose = true

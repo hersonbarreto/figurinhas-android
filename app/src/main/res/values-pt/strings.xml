@@ -60,4 +60,14 @@
         <item quantity="many">Faltam %d figurinhas para mandar ao WhatsApp</item>
         <item quantity="other">Faltam %d figurinhas para mandar ao WhatsApp</item>
     </plurals>
+    <string name="tab_trim">Trecho</string>
+    <string name="speed">Velocidade</string>
+    <string name="trim_start">Início</string>
+    <string name="trim_length">Duração</string>
+    <string name="encoding">Gerando animada… %1$d%%</string>
+    <string name="too_big">Não coube em 500 KB. Tente um trecho menor.</string>
+    <string name="trimmed">Para caber no WhatsApp, a animada ficou com %1$s s.</string>
+    <string name="frame_back">Um quadro antes</string>
+    <string name="frame_forward">Um quadro depois</string>
+    <string name="loading_frames">Lendo quadros…</string>
 </resources>

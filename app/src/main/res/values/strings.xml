@@ -60,4 +60,14 @@
         <item quantity="many">%d more stickers to send to WhatsApp</item>
         <item quantity="other">%d more stickers to send to WhatsApp</item>
     </plurals>
+    <string name="tab_trim">Clip</string>
+    <string name="speed">Speed</string>
+    <string name="trim_start">Start</string>
+    <string name="trim_length">Length</string>
+    <string name="encoding">Making animation… %1$d%%</string>
+    <string name="too_big">It didn\'t fit in 500 KB. Try a shorter clip.</string>
+    <string name="trimmed">To fit WhatsApp, the animation was cut to %1$s s.</string>
+    <string name="frame_back">One frame back</string>
+    <string name="frame_forward">One frame forward</string>
+    <string name="loading_frames">Reading frames…</string>
 </resources>
