@@ -27,6 +27,8 @@ data class StickerLayout(
     val emojiX: Float = SIZE * 0.78f,
     val emojiY: Float = SIZE * 0.78f,
     val emojiSize: Float = 150f,
+    /** Corte livre, em frações do original (esquerda, topo, direita, base). */
+    val cropL: Float = 0f, val cropT: Float = 0f, val cropR: Float = 1f, val cropB: Float = 1f,
 ) {
     companion object { const val SIZE = 512 }
 }
@@ -69,13 +71,20 @@ object StickerRenderer {
 
     /** Desenha a figurinha no canvas, em coordenadas de 512. A tela do editor usa a mesma função. */
     /** [logicalWidth]: largura do original. Quadros reduzidos (vídeo, GIF) são ampliados para a mesma posição. */
+    @Synchronized
     fun draw(canvas: Canvas, bmp: Bitmap, l: StickerLayout, logicalWidth: Int = bmp.width) {
-        val s = l.scale * logicalWidth / bmp.width.toFloat()
+        // Tamanho do recorte no espaço do original; o quadro (talvez reduzido) é esticado para ele.
+        val logicalHeight = logicalWidth * bmp.height / bmp.width.toFloat()
+        val cw = logicalWidth * (l.cropR - l.cropL)
+        val ch = logicalHeight * (l.cropB - l.cropT)
+        val srcRect = android.graphics.Rect((l.cropL * bmp.width).toInt(), (l.cropT * bmp.height).toInt(),
+            (l.cropR * bmp.width).toInt(), (l.cropB * bmp.height).toInt())
+        val dstRect = android.graphics.RectF(-cw / 2f, -ch / 2f, cw / 2f, ch / 2f)
         canvas.save()
         canvas.translate(l.centerX, l.centerY)
         canvas.rotate(l.rotation)
-        canvas.scale(if (l.mirrored) -s else s, s)
-        canvas.drawBitmap(bmp, -bmp.width / 2f, -bmp.height / 2f, imagePaint)
+        canvas.scale(if (l.mirrored) -l.scale else l.scale, l.scale)
+        canvas.drawBitmap(bmp, srcRect, dstRect, imagePaint)
         canvas.restore()
 
         if (l.emoji.isNotBlank()) {

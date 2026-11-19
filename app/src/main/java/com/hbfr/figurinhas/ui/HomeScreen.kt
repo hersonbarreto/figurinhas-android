@@ -72,6 +72,8 @@ fun HomeScreen(
     store: StickerStore,
     refreshKey: Int,
     onGallery: () -> Unit,
+    onPaste: () -> Unit,
+    onLink: () -> Unit,
     onSend: (Pack) -> Unit,
 ) {
     var renaming by remember { mutableStateOf<Pack?>(null) }
@@ -88,10 +90,14 @@ fun HomeScreen(
                 modifier = Modifier.padding(top = 20.dp, bottom = 4.dp))
         }
         item {
-            GradientButton(onClick = onGallery, modifier = Modifier.fillMaxWidth()) {
-                Icon(painterResource(R.drawable.ic_gallery), null, Modifier.size(20.dp))
-                Spacer(Modifier.width(8.dp))
-                Text(stringResource(R.string.gallery), style = MaterialTheme.typography.labelLarge)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                GradientButton(onClick = onGallery, modifier = Modifier.weight(1f)) {
+                    Icon(painterResource(R.drawable.ic_gallery), null, Modifier.size(20.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text(stringResource(R.string.gallery), style = MaterialTheme.typography.labelLarge, maxLines = 1)
+                }
+                SourceButton(R.drawable.ic_paste, R.string.paste, onPaste, Modifier.weight(1f))
+                SourceButton(R.drawable.ic_link, R.string.link, onLink, Modifier.weight(1f))
             }
         }
         if (packs.isEmpty()) item { EmptyCard() }
@@ -107,6 +113,19 @@ fun HomeScreen(
         StickerDialog(s, store, onDismiss = { viewing = null }) {
             Thumbnails.evict(store.stickerFile(s)); store.delete(s); viewing = null
         }
+    }
+}
+
+@Composable
+private fun SourceButton(icon: Int, label: Int, onClick: () -> Unit, modifier: Modifier) {
+    val cs = MaterialTheme.colorScheme
+    Row(
+        modifier.height(52.dp).clip(MaterialTheme.shapes.medium).background(cs.surfaceContainerHigh).clickable(onClick = onClick),
+        horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(painterResource(icon), null, Modifier.size(20.dp), tint = cs.primary)
+        Spacer(Modifier.width(6.dp))
+        Text(stringResource(label), style = MaterialTheme.typography.labelLarge, maxLines = 1)
     }
 }
 

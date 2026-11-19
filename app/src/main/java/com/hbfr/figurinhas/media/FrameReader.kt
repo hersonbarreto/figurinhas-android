@@ -25,8 +25,8 @@ interface FrameReader : Closeable {
 
     companion object {
         /** Abre o arquivo certo, ou null se for imagem parada. Chamar fora da thread principal. */
-        fun open(context: Context, uri: Uri): FrameReader? {
-            val type = context.contentResolver.getType(uri).orEmpty()
+        fun open(context: Context, uri: Uri, mime: String): FrameReader? {
+            val type = mime
             return when {
                 type.startsWith("video/") -> VideoReader(context, uri)
                 type == "image/gif" -> GifReader.open(context, uri)

@@ -69,6 +69,9 @@ import com.hbfr.figurinhas.render.StickerLayout
 import com.hbfr.figurinhas.render.StickerRenderer
 import com.hbfr.figurinhas.ui.theme.GradientButton
 import com.hbfr.figurinhas.media.FrameReader
+import com.hbfr.figurinhas.importer.EditorInput
+import com.hbfr.figurinhas.render.BackgroundRemover
+import androidx.compose.material3.TextButton
 import com.hbfr.figurinhas.render.AnimatedWebP
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.offset
@@ -93,16 +96,20 @@ import kotlin.math.sin
 private val WHATSAPP_EMOJIS = listOf("😀", "😂", "🤣", "😍", "🥰", "😎", "😭", "😡", "😱", "🤔", "😴", "🥳", "👍", "🙏", "👏", "❤️", "🔥", "🎉", "💀", "🤡")
 
 
-private enum class Tab(val label: Int) { Trim(R.string.tab_trim), Adjust(R.string.tab_adjust), Text(R.string.tab_text), Emoji(R.string.tab_emoji) }
+private enum class Tab(val label: Int) { Trim(R.string.tab_trim), Adjust(R.string.tab_adjust), Background(R.string.tab_background), Text(R.string.tab_text), Emoji(R.string.tab_emoji) }
 
 @Composable
-fun EditorScreen(uri: Uri, store: StickerStore, onBack: () -> Unit, onSaved: (String) -> Unit, onError: (String) -> Unit) {
+fun EditorScreen(input: EditorInput, store: StickerStore, onBack: () -> Unit, onSaved: (String) -> Unit, onError: (String) -> Unit, onMessage: (String) -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val cs = MaterialTheme.colorScheme
 
     // Origem: foto parada ou leitor de GIF/vídeo.
     var still by remember { mutableStateOf<Bitmap?>(null) }
+    var original by remember { mutableStateOf<Bitmap?>(null) }
+    var bgBusy by remember { mutableStateOf(false) }
+    var tolerance by remember { mutableFloatStateOf(40f) }
+    var cropping by remember { mutableStateOf(false) }
     var reader by remember { mutableStateOf<FrameReader?>(null) }
     var loaded by remember { mutableStateOf(false) }
     val animated = reader != null
@@ -130,8 +137,9 @@ fun EditorScreen(uri: Uri, store: StickerStore, onBack: () -> Unit, onSaved: (St
     val names = StickerStore.DefaultNames(
         stringResource(R.string.default_pack), stringResource(R.string.default_pack_animated), stringResource(R.string.numbered_pack))
 
-    LaunchedEffect(uri) {
-        val r = withContext(Dispatchers.IO) { runCatching { FrameReader.open(context, uri) }.getOrNull() }
+    LaunchedEffect(input) {
+        val uri = input.uri
+        val r = withContext(Dispatchers.IO) { runCatching { FrameReader.open(context, uri, input.mime) }.getOrNull() }
         if (r != null && r.durationMs > 0 && r.width > 0) {
             reader = r
             trimLength = minOf(r.durationMs, if (r is com.hbfr.figurinhas.media.VideoReader) 5_000L else AnimatedWebP.MAX_DURATION_MS)
@@ -146,6 +154,7 @@ fun EditorScreen(uri: Uri, store: StickerStore, onBack: () -> Unit, onSaved: (St
             val bmp = withContext(Dispatchers.IO) { runCatching { StickerRenderer.decode(context, uri) }.getOrNull() }
             if (bmp == null) { onError(loadError); return@LaunchedEffect }
             still = bmp
+            original = bmp
             layout = StickerLayout(scale = StickerRenderer.fitScale(bmp))
             packId = store.suggestedPackId(animated = false)
         }
@@ -176,8 +185,23 @@ fun EditorScreen(uri: Uri, store: StickerStore, onBack: () -> Unit, onSaved: (St
         }
     }
 
-    val fit = StickerRenderer.fitScale(logicalW, logicalH)
-    val fill = StickerRenderer.fillScale(logicalW, logicalH)
+    val cropW = (logicalW * (layout.cropR - layout.cropL)).toInt().coerceAtLeast(1)
+    val cropH = (logicalH * (layout.cropB - layout.cropT)).toInt().coerceAtLeast(1)
+    val fit = StickerRenderer.fitScale(cropW, cropH)
+    val fill = StickerRenderer.fillScale(cropW, cropH)
+    val cutoutNone = stringResource(R.string.cutout_none)
+    val cutoutError = stringResource(R.string.cutout_error)
+
+    if (cropping) {
+        val bmp = if (animated) frames.getOrNull(0) else still
+        if (bmp == null) cropping = false else CropDialog(bmp, androidx.compose.ui.geometry.Rect(layout.cropL, layout.cropT, layout.cropR, layout.cropB),
+            onCancel = { cropping = false }) { r ->
+            cropping = false
+            val cw = (logicalW * r.width).toInt().coerceAtLeast(1); val ch = (logicalH * r.height).toInt().coerceAtLeast(1)
+            layout = layout.copy(cropL = r.left, cropT = r.top, cropR = r.right, cropB = r.bottom,
+                centerX = 256f, centerY = 256f, rotation = 0f, scale = StickerRenderer.fitScale(cw, ch))
+        }
+    }
 
     Column(Modifier.fillMaxSize().imePadding()) {
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = 4.dp, vertical = 4.dp)) {
@@ -222,7 +246,7 @@ fun EditorScreen(uri: Uri, store: StickerStore, onBack: () -> Unit, onSaved: (St
             Text(stringResource(R.string.editor_hint), style = MaterialTheme.typography.bodySmall,
                 color = cs.onSurfaceVariant, modifier = Modifier.padding(top = 6.dp, bottom = 10.dp))
 
-            val tabs = if (animated) Tab.entries else listOf(Tab.Adjust, Tab.Text, Tab.Emoji)
+            val tabs = if (animated) listOf(Tab.Trim, Tab.Adjust, Tab.Text, Tab.Emoji) else listOf(Tab.Adjust, Tab.Background, Tab.Text, Tab.Emoji)
             SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
                 tabs.forEachIndexed { i, t ->
                     SegmentedButton(tab == t, { tab = t; moveEmoji = t == Tab.Emoji && layout.emoji.isNotBlank() },
@@ -243,6 +267,7 @@ fun EditorScreen(uri: Uri, store: StickerStore, onBack: () -> Unit, onSaved: (St
                 }
                 Tab.Adjust -> {
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        ToolTile(painterResource(R.drawable.ic_crop), R.string.crop) { cropping = true }
                         ToolTile(painterResource(R.drawable.ic_rotate), R.string.rotate) {
                             layout = layout.copy(rotation = (layout.rotation + 90f) % 360f)
                         }
@@ -269,6 +294,55 @@ fun EditorScreen(uri: Uri, store: StickerStore, onBack: () -> Unit, onSaved: (St
                         }
                         Slider(value = pct.coerceIn(0.3f, 4f), valueRange = 0.3f..4f,
                             onValueChange = { layout = layout.copy(scale = fit * it) })
+                    }
+                }
+                Tab.Background -> Panel {
+                    val src = original
+                    Text(stringResource(R.string.auto_cutout), style = MaterialTheme.typography.titleMedium)
+                    Text(stringResource(R.string.auto_cutout_body), style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant)
+                    Spacer(Modifier.height(8.dp))
+                    GradientButton(enabled = src != null && !bgBusy, modifier = Modifier.fillMaxWidth(), onClick = {
+                        val s = src ?: return@GradientButton
+                        bgBusy = true
+                        scope.launch {
+                            val out = runCatching { withContext(Dispatchers.Default) { BackgroundRemover.liftSubject(s) } }
+                            bgBusy = false
+                            out.onSuccess { b -> if (b == null) onMessage(cutoutNone) else still = b }
+                                .onFailure { onMessage(cutoutError) }
+                        }
+                    }) {
+                        if (bgBusy) { CircularProgressIndicator(Modifier.size(18.dp), color = Color.White, strokeWidth = 2.dp); Spacer(Modifier.width(8.dp)) }
+                        else { Icon(painterResource(R.drawable.ic_magic), null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)) }
+                        Text(stringResource(if (bgBusy) R.string.working else R.string.auto_cutout), style = MaterialTheme.typography.labelLarge)
+                    }
+                    Spacer(Modifier.height(16.dp))
+                    Text(stringResource(R.string.solid_bg), style = MaterialTheme.typography.titleMedium)
+                    Text(stringResource(R.string.solid_bg_body), style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(stringResource(R.string.tolerance), style = MaterialTheme.typography.bodyMedium)
+                        Slider(value = tolerance, valueRange = 5f..120f, modifier = Modifier.weight(1f).padding(horizontal = 12.dp),
+                            onValueChange = { tolerance = it },
+                            onValueChangeFinished = {
+                                val s = src ?: return@Slider
+                                bgBusy = true
+                                scope.launch {
+                                    still = withContext(Dispatchers.Default) { BackgroundRemover.removeSolidBackground(s, tolerance) }
+                                    bgBusy = false
+                                }
+                            })
+                    }
+                    androidx.compose.material3.OutlinedButton(enabled = src != null && !bgBusy, onClick = {
+                        val s = src ?: return@OutlinedButton
+                        bgBusy = true
+                        scope.launch {
+                            still = withContext(Dispatchers.Default) { BackgroundRemover.removeSolidBackground(s, tolerance) }
+                            bgBusy = false
+                        }
+                    }, modifier = Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.medium) { Text(stringResource(R.string.solid_bg)) }
+                    if (still !== original) {
+                        TextButton(onClick = { still = original }, modifier = Modifier.align(Alignment.CenterHorizontally)) {
+                            Text(stringResource(R.string.undo_bg))
+                        }
                     }
                 }
                 Tab.Text -> Panel {
@@ -412,7 +486,7 @@ private fun TrimPanel(
 }
 
 @Composable
-private fun Panel(content: @Composable () -> Unit) {
+private fun Panel(content: @Composable androidx.compose.foundation.layout.ColumnScope.() -> Unit) {
     Column(Modifier.fillMaxWidth().clip(MaterialTheme.shapes.large).background(MaterialTheme.colorScheme.surfaceContainer).padding(14.dp)) {
         content()
     }
