@@ -15,7 +15,7 @@ android {
         applicationId = "com.hbfr.figurinhas"
         minSdk = 28
         targetSdk = 36
-        versionCode = 1
+        versionCode = 2
         versionName = "1.0"
         // O ContentProvider que o WhatsApp lê. O WhatsApp exige este formato.
         manifestPlaceholders["contentProviderAuthority"] = "com.hbfr.figurinhas.stickercontentprovider"
@@ -74,7 +74,7 @@ dependencies {
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.material:material-icons-core")
     implementation("com.google.android.gms:play-services-mlkit-subject-segmentation:16.0.0-beta1")
-    implementation("com.android.billingclient:billing-ktx:7.1.1")
+    implementation("com.android.billingclient:billing-ktx:8.3.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
     debugImplementation("androidx.compose.ui:ui-tooling")
 }
