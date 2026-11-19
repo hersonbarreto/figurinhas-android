@@ -76,7 +76,9 @@ fun PaywallDialog(reason: PaywallReason, purchases: PurchaseManager, onDismiss: 
     var busy by remember { mutableStateOf(false) }
     var message by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(Unit) { purchases.refresh() }
-    LaunchedEffect(isPro) { if (isPro) onDismiss() }
+    // Fecha sozinho só quando a compra acontece aqui; se já era Pro, mostra que está ativo.
+    val wasPro = remember { purchases.isPro.value }
+    LaunchedEffect(isPro) { if (isPro && !wasPro) onDismiss() }
 
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         Surface(Modifier.fillMaxSize(), color = cs.background, contentColor = cs.onBackground) {
@@ -124,6 +126,16 @@ fun PaywallDialog(reason: PaywallReason, purchases: PurchaseManager, onDismiss: 
                         modifier = Modifier.clip(RoundedCornerShape(8.dp)).background(cs.secondaryContainer).padding(horizontal = 10.dp, vertical = 4.dp))
                 }
                 Spacer(Modifier.height(20.dp))
+                if (wasPro) {
+                    Text(stringResource(R.string.pro_active), style = MaterialTheme.typography.titleMedium, color = cs.primary,
+                        textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
+                    Spacer(Modifier.height(12.dp))
+                    GradientButton(onClick = onDismiss, modifier = Modifier.fillMaxWidth()) {
+                        Text(stringResource(R.string.close), style = MaterialTheme.typography.labelLarge)
+                    }
+                    Spacer(Modifier.height(24.dp))
+                    return@Column
+                }
                 GradientButton(enabled = price != null && !busy, modifier = Modifier.fillMaxWidth(), onClick = {
                     val act = context as? Activity ?: return@GradientButton
                     busy = true; message = null

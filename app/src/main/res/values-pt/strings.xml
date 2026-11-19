@@ -140,4 +140,5 @@
     <string name="new_pack_pro">Novo pacote (Pro)</string>
     <string name="delete_pack">Apagar pacote</string>
     <string name="delete_pack_q">Apagar o pacote e as %1$d figurinhas dele?</string>
+    <string name="pro_active">Você já tem o Pro. Obrigado!</string>
 </resources>
