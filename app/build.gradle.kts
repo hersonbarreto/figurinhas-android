@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -6,25 +8,38 @@ plugins {
 
 android {
     namespace = "com.hbfr.figurinhas"
-    compileSdk = 35
+    compileSdk = 36
     ndkVersion = "27.2.12479018"
 
     defaultConfig {
         applicationId = "com.hbfr.figurinhas"
         minSdk = 28
-        targetSdk = 35
+        targetSdk = 36
         versionCode = 1
-        versionName = "0.1"
+        versionName = "1.0"
         // O ContentProvider que o WhatsApp lê. O WhatsApp exige este formato.
         manifestPlaceholders["contentProviderAuthority"] = "com.hbfr.figurinhas.stickercontentprovider"
         ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86_64") }
+        // APK de teste instalado fora da Play: mostra "Liberar Pro (teste)" no Sobre. Nunca no AAB da loja.
+        buildConfigField("boolean", "TEST_UNLOCK", (project.findProperty("testUnlock")?.toString() == "true").toString())
         buildConfigField("String", "CONTENT_PROVIDER_AUTHORITY", "\"com.hbfr.figurinhas.stickercontentprovider\"")
     }
 
-    // Para testar: o release usa a chave de debug até existir a chave de envio da Play Store.
+    // Chave de envio da Play: -PsigningProps=/caminho/keystore.properties (fica fora do GitHub).
+    // Sem ela, o release é assinado com a chave de debug (só para testes fora da loja).
+    val signingProps = project.findProperty("signingProps")?.toString()?.let { file(it) }?.takeIf { it.exists() }
+    signingConfigs {
+        if (signingProps != null) create("upload") {
+            val p = Properties().apply { signingProps.inputStream().use { load(it) } }
+            storeFile = file(p.getProperty("storeFile"))
+            storePassword = p.getProperty("storePassword")
+            keyAlias = p.getProperty("keyAlias")
+            keyPassword = p.getProperty("keyPassword")
+        }
+    }
     buildTypes {
         release {
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.findByName("upload") ?: signingConfigs.getByName("debug")
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
@@ -59,6 +74,7 @@ dependencies {
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.material:material-icons-core")
     implementation("com.google.android.gms:play-services-mlkit-subject-segmentation:16.0.0-beta1")
+    implementation("com.android.billingclient:billing-ktx:7.1.1")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
     debugImplementation("androidx.compose.ui:ui-tooling")
 }

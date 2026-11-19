@@ -75,10 +75,15 @@ fun HomeScreen(
     onPaste: () -> Unit,
     onLink: () -> Unit,
     onSend: (Pack) -> Unit,
+    isPro: Boolean,
+    onPro: () -> Unit,
+    onAbout: () -> Unit,
+    onNewPack: () -> Unit,
 ) {
     var renaming by remember { mutableStateOf<Pack?>(null) }
     var viewing by remember { mutableStateOf<StoredSticker?>(null) }
-    val packs = state.packList.filter { it.stickers.isNotEmpty() }
+    val packs = state.packList.filter { it.stickers.isNotEmpty() || state.packs.size > 1 }
+    var deleting by remember { mutableStateOf<Pack?>(null) }
 
     LazyColumn(
         Modifier.fillMaxSize(),
@@ -86,8 +91,22 @@ fun HomeScreen(
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         item {
-            Text(stringResource(R.string.app_name), style = MaterialTheme.typography.headlineMedium,
-                modifier = Modifier.padding(top = 20.dp, bottom = 4.dp))
+            var menu by remember { mutableStateOf(false) }
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 8.dp)) {
+                Text(stringResource(R.string.app_name), style = MaterialTheme.typography.headlineMedium, modifier = Modifier.weight(1f))
+                TextButton(onClick = onPro) {
+                    Text((if (isPro) "★ " else "♛ ") + stringResource(R.string.pro_badge), color = MaterialTheme.colorScheme.primary,
+                        style = MaterialTheme.typography.labelLarge)
+                }
+                Box {
+                    IconButton(onClick = { menu = true }) { Icon(Icons.Default.MoreVert, stringResource(R.string.more)) }
+                    DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                        DropdownMenuItem(text = { Text(stringResource(if (isPro) R.string.new_pack else R.string.new_pack_pro)) },
+                            onClick = { menu = false; onNewPack() })
+                        DropdownMenuItem(text = { Text(stringResource(R.string.about)) }, onClick = { menu = false; onAbout() })
+                    }
+                }
+            }
         }
         item {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -102,10 +121,23 @@ fun HomeScreen(
         }
         if (packs.isEmpty()) item { EmptyCard() }
         items(packs, key = { it.id }) { pack ->
-            PackCard(pack, store, refreshKey, onSend = { onSend(pack) }, onRename = { renaming = pack }, onTap = { viewing = it })
+            PackCard(pack, store, refreshKey, onSend = { onSend(pack) }, onRename = { renaming = pack }, onTap = { viewing = it },
+                onDelete = { deleting = pack })
         }
     }
 
+    deleting?.let { p ->
+        AlertDialog(
+            onDismissRequest = { deleting = null },
+            containerColor = MaterialTheme.colorScheme.surfaceContainer,
+            text = { Text(stringResource(R.string.delete_pack_q, p.stickers.size)) },
+            confirmButton = { TextButton(onClick = {
+                p.stickers.forEach { Thumbnails.evict(store.stickerFile(it)) }
+                store.deletePack(p.id); deleting = null
+            }) { Text(stringResource(R.string.delete), color = MaterialTheme.colorScheme.error) } },
+            dismissButton = { TextButton(onClick = { deleting = null }) { Text(stringResource(R.string.cancel)) } },
+        )
+    }
     renaming?.let { p ->
         RenameDialog(p, onDismiss = { renaming = null }) { name, author -> store.rename(p.id, name, author); renaming = null }
     }
@@ -140,7 +172,7 @@ private fun EmptyCard() {
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun PackCard(pack: Pack, store: StickerStore, refreshKey: Int, onSend: () -> Unit, onRename: () -> Unit, onTap: (StoredSticker) -> Unit) {
+private fun PackCard(pack: Pack, store: StickerStore, refreshKey: Int, onSend: () -> Unit, onRename: () -> Unit, onTap: (StoredSticker) -> Unit, onDelete: () -> Unit) {
     val context = LocalContext.current
     var added by remember { mutableStateOf(false) }
     LaunchedEffect(pack.id, pack.info.version, refreshKey) {
@@ -172,6 +204,7 @@ private fun PackCard(pack: Pack, store: StickerStore, refreshKey: Int, onSend: (
                 IconButton(onClick = { menu = true }) { Icon(Icons.Default.MoreVert, stringResource(R.string.more), tint = cs.onSurfaceVariant) }
                 DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                     DropdownMenuItem(text = { Text(stringResource(R.string.rename_pack)) }, onClick = { menu = false; onRename() })
+                    DropdownMenuItem(text = { Text(stringResource(R.string.delete_pack), color = cs.error) }, onClick = { menu = false; onDelete() })
                 }
             }
             SendButton(enabled = pack.missing == 0, added = added, onClick = onSend)

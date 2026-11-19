@@ -20,5 +20,5 @@ Precisa do Android SDK (35) em `local.properties` (`sdk.dir=...`). O release ain
 1. ✅ Esqueleto, editor de estática, envio ao WhatsApp
 2. ✅ Animadas (libwebp nativa em app/src/main/cpp), vídeo (MediaCodec) e Trecho
 3. ✅ Recorte de fundo (ML Kit), fundo liso, corte livre, colar, links e compartilhar
-4. Pro (Google Play Billing, R$ 19,90), tela Sobre
+4. ✅ Pro (Google Play Billing, R$ 19,90), tela Sobre
 5. Ficha na Play Store e teste fechado

@@ -113,6 +113,15 @@ class StickerStore(context: Context) {
     }
 
     @Synchronized
+    fun deletePack(packId: String) {
+        val st = _state.value
+        st.stickers.filter { it.packId == packId }.forEach { stickerFile(it).delete() }
+        trayFile(packId).delete()
+        commit(StoreState(st.stickers.filter { it.packId != packId }, st.packs.filter { it.id != packId }))
+        if (lastPackId == packId) lastPackId = null
+    }
+
+    @Synchronized
     fun createPack(defaultNames: DefaultNames): String {
         val st = _state.value
         val p = newPack(st, uniqueName(st, defaultNames.numbered))

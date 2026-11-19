@@ -64,6 +64,7 @@ class MainActivity : ComponentActivity() {
         if (savedInstanceState == null) sharedIntent = intent.takeIf { it.action == Intent.ACTION_SEND }
         Importer.cleanup(this)
         val store = (application as FigurinhasApp).store
+        val purchases = (application as FigurinhasApp).purchases
         setContent {
             FigurinhasTheme {
                 val state by store.state.collectAsStateWithLifecycle()
@@ -71,6 +72,12 @@ class MainActivity : ComponentActivity() {
                 var choosing by remember { mutableStateOf<Pack?>(null) }
                 var linkDialog by remember { mutableStateOf<String?>(null) }
                 var busy by remember { mutableStateOf(false) }
+                var paywall by remember { mutableStateOf<com.hbfr.figurinhas.purchases.PaywallReason?>(null) }
+                var about by remember { mutableStateOf(false) }
+                val isPro by purchases.isPro.collectAsStateWithLifecycle()
+                val names = com.hbfr.figurinhas.data.StickerStore.DefaultNames(
+                    stringResource(R.string.default_pack), stringResource(R.string.default_pack_animated), stringResource(R.string.numbered_pack))
+                fun overLimit() = !isPro && state.stickers.size >= com.hbfr.figurinhas.purchases.PurchaseManager.FREE_STICKER_LIMIT
                 var refreshKey by remember { mutableIntStateOf(0) }
                 val snackbar = remember { SnackbarHostState() }
                 val scope = rememberCoroutineScope()
@@ -132,12 +139,32 @@ class MainActivity : ComponentActivity() {
                 Box(Modifier.fillMaxSize()) {
                     Column(Modifier.fillMaxSize().statusBarsPadding()) {
                         val input = editing
-                        if (input == null) {
+                        if (about && input == null) {
+                            BackHandler { about = false }
+                            Box(Modifier.weight(1f).navigationBarsPadding()) {
+                                com.hbfr.figurinhas.ui.AboutScreen(purchases, onBack = { about = false },
+                                    onPro = { paywall = com.hbfr.figurinhas.purchases.PaywallReason.General },
+                                    onMessage = { m -> scope.launch { snackbar.showSnackbar(m) } })
+                            }
+                        } else if (input == null) {
                             Box(Modifier.weight(1f).navigationBarsPadding()) {
                                 HomeScreen(state, store, refreshKey,
-                                    onGallery = { picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageAndVideo)) },
-                                    onPaste = { runImport({ Importer.fromClipboard(this@MainActivity) }, pasteEmpty) },
+                                    onGallery = {
+                                        if (overLimit()) paywall = com.hbfr.figurinhas.purchases.PaywallReason.Limit
+                                        else picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageAndVideo))
+                                    },
+                                    onPaste = {
+                                        if (overLimit()) paywall = com.hbfr.figurinhas.purchases.PaywallReason.Limit
+                                        else runImport({ Importer.fromClipboard(this@MainActivity) }, pasteEmpty)
+                                    },
+                                    isPro = isPro,
+                                    onPro = { paywall = com.hbfr.figurinhas.purchases.PaywallReason.General },
+                                    onAbout = { about = true },
+                                    onNewPack = {
+                                        if (!isPro) paywall = com.hbfr.figurinhas.purchases.PaywallReason.Packs else store.createPack(names)
+                                    },
                                     onLink = {
+                                        if (overLimit()) { paywall = com.hbfr.figurinhas.purchases.PaywallReason.Limit; return@HomeScreen }
                                         val clip = getSystemService(android.content.ClipboardManager::class.java).primaryClip
                                         linkDialog = Importer.findLink(clip?.getItemAt(0)?.text?.toString()).orEmpty()
                                     },
@@ -156,12 +183,15 @@ class MainActivity : ComponentActivity() {
                                 onBack = { editing = null },
                                 onSaved = { msg -> editing = null; scope.launch { snackbar.showSnackbar(msg) } },
                                 onError = { msg -> editing = null; scope.launch { snackbar.showSnackbar(msg) } },
-                                onMessage = { msg -> scope.launch { snackbar.showSnackbar(msg) } })
+                                onMessage = { msg -> scope.launch { snackbar.showSnackbar(msg) } },
+                                isPro = isPro, onPaywall = { paywall = it })
                         }
                     }
                     SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).navigationBarsPadding())
                 }
                 }
+
+                paywall?.let { r -> com.hbfr.figurinhas.purchases.PaywallDialog(r, purchases) { paywall = null } }
 
                 if (busy) {
                     AlertDialog(onDismissRequest = {}, confirmButton = {}, text = {

@@ -101,7 +101,8 @@ private val WHATSAPP_EMOJIS = listOf("😀", "😂", "🤣", "😍", "🥰", "�
 private enum class Tab(val label: Int) { Trim(R.string.tab_trim), Adjust(R.string.tab_adjust), Background(R.string.tab_background), Text(R.string.tab_text), Emoji(R.string.tab_emoji) }
 
 @Composable
-fun EditorScreen(input: EditorInput, store: StickerStore, onBack: () -> Unit, onSaved: (String) -> Unit, onError: (String) -> Unit, onMessage: (String) -> Unit) {
+fun EditorScreen(input: EditorInput, store: StickerStore, onBack: () -> Unit, onSaved: (String) -> Unit, onError: (String) -> Unit, onMessage: (String) -> Unit,
+    isPro: Boolean, onPaywall: (com.hbfr.figurinhas.purchases.PaywallReason) -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val cs = MaterialTheme.colorScheme
@@ -304,6 +305,7 @@ fun EditorScreen(input: EditorInput, store: StickerStore, onBack: () -> Unit, on
                     Text(stringResource(R.string.auto_cutout_body), style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant)
                     Spacer(Modifier.height(8.dp))
                     GradientButton(enabled = src != null && !bgBusy, modifier = Modifier.fillMaxWidth(), onClick = {
+                        if (!isPro) { onPaywall(com.hbfr.figurinhas.purchases.PaywallReason.Background); return@GradientButton }
                         val s = src ?: return@GradientButton
                         bgBusy = true
                         scope.launch {
@@ -325,6 +327,7 @@ fun EditorScreen(input: EditorInput, store: StickerStore, onBack: () -> Unit, on
                         Slider(value = tolerance, valueRange = 5f..120f, modifier = Modifier.weight(1f).padding(horizontal = 12.dp),
                             onValueChange = { tolerance = it },
                             onValueChangeFinished = {
+                                if (!isPro) { onPaywall(com.hbfr.figurinhas.purchases.PaywallReason.Background); return@Slider }
                                 val s = src ?: return@Slider
                                 bgBusy = true
                                 scope.launch {
@@ -334,6 +337,7 @@ fun EditorScreen(input: EditorInput, store: StickerStore, onBack: () -> Unit, on
                             })
                     }
                     androidx.compose.material3.OutlinedButton(enabled = src != null && !bgBusy, onClick = {
+                        if (!isPro) { onPaywall(com.hbfr.figurinhas.purchases.PaywallReason.Background); return@OutlinedButton }
                         val s = src ?: return@OutlinedButton
                         bgBusy = true
                         scope.launch {
@@ -382,12 +386,22 @@ fun EditorScreen(input: EditorInput, store: StickerStore, onBack: () -> Unit, on
 
         // Barra de baixo: "Salvar em" + botão.
         Column(Modifier.fillMaxWidth().background(cs.surfaceContainerLow).navigationBarsPadding().padding(horizontal = 16.dp, vertical = 10.dp)) {
-            PackPicker(store, animated, packId, if (animated) names.animated else names.static) { packId = it }
+            PackPicker(store, animated, packId, if (animated) names.animated else names.static, isPro,
+                onNew = {
+                    if (!isPro) onPaywall(com.hbfr.figurinhas.purchases.PaywallReason.Packs)
+                    else packId = store.createPack(names)
+                }) { packId = it }
             Spacer(Modifier.height(8.dp))
             GradientButton(
                 enabled = loaded && !saving && (!animated || frames.isNotEmpty()),
                 modifier = Modifier.fillMaxWidth(),
                 onClick = {
+                    if (!isPro) {
+                        if (animated) { onPaywall(com.hbfr.figurinhas.purchases.PaywallReason.Animated); return@GradientButton }
+                        if (store.state.value.stickers.size >= com.hbfr.figurinhas.purchases.PurchaseManager.FREE_STICKER_LIMIT) {
+                            onPaywall(com.hbfr.figurinhas.purchases.PaywallReason.Limit); return@GradientButton
+                        }
+                    }
                     saving = true
                     progress = 0f
                     scope.launch {
@@ -552,7 +566,7 @@ private fun RowScope.ToolTile(icon: Painter, label: Int, onClick: () -> Unit) {
 }
 
 @Composable
-private fun PackPicker(store: StickerStore, animated: Boolean, selected: String?, defaultName: String, onPick: (String) -> Unit) {
+private fun PackPicker(store: StickerStore, animated: Boolean, selected: String?, defaultName: String, isPro: Boolean, onNew: () -> Unit, onPick: (String) -> Unit) {
     val cs = MaterialTheme.colorScheme
     val packs = store.packsAccepting(animated)
     var open by remember { mutableStateOf(false) }
@@ -560,7 +574,7 @@ private fun PackPicker(store: StickerStore, animated: Boolean, selected: String?
     Box {
         Row(
             Modifier.fillMaxWidth().height(44.dp).clip(MaterialTheme.shapes.medium).background(cs.surfaceContainerHigh)
-                .clickable(enabled = packs.size > 1) { open = true }.padding(horizontal = 12.dp),
+                .clickable { open = true }.padding(horizontal = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Icon(painterResource(R.drawable.ic_folder), null, Modifier.size(18.dp), tint = cs.onSurfaceVariant)
@@ -568,12 +582,14 @@ private fun PackPicker(store: StickerStore, animated: Boolean, selected: String?
             Text(stringResource(R.string.save_to), style = MaterialTheme.typography.bodyMedium, color = cs.onSurfaceVariant)
             Spacer(Modifier.width(6.dp))
             Text(current, style = MaterialTheme.typography.titleMedium, maxLines = 1, modifier = Modifier.weight(1f))
-            if (packs.size > 1) Icon(Icons.Default.ArrowDropDown, null, tint = cs.onSurfaceVariant)
+            Icon(Icons.Default.ArrowDropDown, null, tint = cs.onSurfaceVariant)
         }
         DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
             packs.forEach { p ->
                 DropdownMenuItem(text = { Text("${p.info.name} (${p.stickers.size})") }, onClick = { onPick(p.id); open = false })
             }
+            DropdownMenuItem(text = { Text(stringResource(if (isPro) R.string.new_pack else R.string.new_pack_pro), color = cs.primary) },
+                onClick = { open = false; onNew() })
         }
     }
 }
