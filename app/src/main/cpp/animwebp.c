@@ -25,8 +25,9 @@ Java_com_hbfr_figurinhas_render_AnimatedWebP_nativeCreate(JNIEnv* env, jclass cl
   opts.anim_params.loop_count = 0;
   opts.anim_params.bgcolor = 0x00000000;
   opts.minimize_size = 0;
-  opts.kmin = 3;
-  opts.kmax = 15;
+  // Poucos quadros-chave: menos tentativas por quadro (mais rápido) e arquivo menor.
+  opts.kmin = 29;
+  opts.kmax = 30;
   opts.allow_mixed = 0;
   e->config.quality = quality;
   e->config.method = method;

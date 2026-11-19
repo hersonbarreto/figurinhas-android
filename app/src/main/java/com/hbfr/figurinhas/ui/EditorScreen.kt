@@ -6,6 +6,8 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTransformGestures
+import androidx.compose.foundation.gestures.detectDragGestures
+import com.hbfr.figurinhas.ui.theme.Violet
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -142,12 +144,12 @@ fun EditorScreen(input: EditorInput, store: StickerStore, onBack: () -> Unit, on
         val r = withContext(Dispatchers.IO) { runCatching { FrameReader.open(context, uri, input.mime) }.getOrNull() }
         if (r != null && r.durationMs > 0 && r.width > 0) {
             reader = r
-            trimLength = minOf(r.durationMs, if (r is com.hbfr.figurinhas.media.VideoReader) 5_000L else AnimatedWebP.MAX_DURATION_MS)
+            trimLength = minOf(r.durationMs, AnimatedWebP.MAX_DURATION_MS)
             tab = Tab.Trim
             layout = StickerLayout(scale = StickerRenderer.fitScale(r.width, r.height))
             packId = store.suggestedPackId(animated = true)
             strip = withContext(Dispatchers.IO) {
-                (0 until 8).mapNotNull { i -> r.thumbnail(r.durationMs * i / 8, 96) }
+                (0 until 10).mapNotNull { i -> r.thumbnail(r.durationMs * (2 * i + 1) / 20, 120) }
             }
         } else {
             r?.close()
@@ -394,7 +396,7 @@ fun EditorScreen(input: EditorInput, store: StickerStore, onBack: () -> Unit, on
                         val webp = withContext(Dispatchers.Default) {
                             val r = reader
                             if (r != null) {
-                                val res = AnimatedWebP.encode(r, l, trimStart, trimLength, speed) { p -> progress = p }
+                                val res = AnimatedWebP.encode(context, r, l, trimStart, trimLength, speed) { p -> progress = p }
                                 if (res != null && res.sourceLengthMs + AnimatedWebP.STEP_MS < trimLength) {
                                     val secs = String.format(Locale.getDefault(), "%.1f", res.sourceLengthMs / speed / 1000f)
                                     note = context.getString(R.string.trimmed, secs)
@@ -430,7 +432,10 @@ fun EditorScreen(input: EditorInput, store: StickerStore, onBack: () -> Unit, on
     }
 }
 
-/** Trecho: tira de quadros do vídeo inteiro, seletor de início e fim, ajuste fino de um quadro e velocidade. */
+/**
+ * Trecho, como no iPhone: tira de quadros do vídeo inteiro com uma janela.
+ * Arrastar o meio move a janela; as pontas mudam início e fim. Setas andam um quadro.
+ */
 @Composable
 private fun TrimPanel(
     duration: Long, start: Long, length: Long, speed: Float, strip: List<Bitmap>, loading: Boolean,
@@ -439,44 +444,85 @@ private fun TrimPanel(
     val cs = MaterialTheme.colorScheme
     val maxLen = minOf(duration, AnimatedWebP.maxSourceLength(speed))
     val minLen = minOf(duration, 500L)
-    var range by remember(start, length) { mutableStateOf(start.toFloat()..(start + length).toFloat()) }
+    var s by remember(start, length) { mutableLongStateOf(start) }
+    var len by remember(start, length) { mutableLongStateOf(length) }
+    val thumbs = remember(strip) { strip.map { it.asImageBitmap() } }
+    val density = androidx.compose.ui.platform.LocalDensity.current
+    val handleW = with(density) { 16.dp.toPx() }
     fun secs(ms: Long) = String.format(Locale.getDefault(), "%.1f s", ms / 1000f)
+    fun snap(ms: Long) = (ms / AnimatedWebP.STEP_MS) * AnimatedWebP.STEP_MS
 
     Panel {
-        Box(Modifier.fillMaxWidth().height(48.dp).clip(MaterialTheme.shapes.small).background(cs.surfaceContainerHigh)) {
-            Row(Modifier.fillMaxSize()) {
-                strip.forEach { b ->
-                    Image(b.asImageBitmap(), null, Modifier.weight(1f).fillMaxSize(), contentScale = ContentScale.Crop)
+        Row {
+            Text(stringResource(R.string.tab_trim), style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+            Text("${secs(s)} – ${secs(s + len)} · ${secs(len)}", style = MaterialTheme.typography.bodyMedium, color = cs.onSurfaceVariant)
+        }
+        Spacer(Modifier.height(10.dp))
+        Box(Modifier.fillMaxWidth().height(58.dp)) {
+            Row(Modifier.fillMaxSize().clip(MaterialTheme.shapes.small).background(cs.surfaceContainerHigh)) {
+                thumbs.forEach { b -> Image(b, null, Modifier.weight(1f).fillMaxSize(), contentScale = ContentScale.Crop) }
+            }
+            Canvas(Modifier.fillMaxSize().pointerInput(duration, maxLen) {
+                var part = 0 // 1 início, 2 fim, 3 mover
+                var origS = 0L; var origLen = 0L; var acc = 0f
+                detectDragGestures(
+                    onDragStart = { p ->
+                        val pps = size.width / duration.toFloat()
+                        val x0 = s * pps; val x1 = (s + len) * pps
+                        part = when {
+                            kotlin.math.abs(p.x - x0) <= handleW * 1.5f && p.x < (x0 + x1) / 2 -> 1
+                            kotlin.math.abs(p.x - x1) <= handleW * 1.5f -> 2
+                            else -> 3
+                        }
+                        origS = s; origLen = len; acc = 0f
+                    },
+                    onDragEnd = { onTrim(s, len) },
+                    onDragCancel = { onTrim(s, len) },
+                ) { change, d ->
+                    change.consume()
+                    acc += d.x
+                    val dMs = (acc / size.width * duration).toLong()
+                    when (part) {
+                        3 -> s = snap((origS + dMs).coerceIn(0L, duration - origLen))
+                        1 -> {
+                            val end = origS + origLen
+                            val ns = snap((origS + dMs).coerceIn(maxOf(0L, end - maxLen), end - minLen))
+                            s = ns; len = end - ns
+                        }
+                        2 -> len = snap((origLen + dMs).coerceIn(minLen, minOf(maxLen, duration - origS))).coerceAtLeast(minLen)
+                    }
                 }
+            }) {
+                val pps = size.width / duration.toFloat()
+                val x0 = s * pps; val x1 = ((s + len) * pps).coerceAtMost(size.width)
+                val dim = Color(0xA6000000)
+                drawRect(dim, androidx.compose.ui.geometry.Offset.Zero, androidx.compose.ui.geometry.Size(x0, size.height))
+                drawRect(dim, androidx.compose.ui.geometry.Offset(x1, 0f), androidx.compose.ui.geometry.Size(size.width - x1, size.height))
+                val stroke = 3.dp.toPx()
+                drawRoundRect(com.hbfr.figurinhas.ui.theme.BrandBrush.LightGradient,
+                    topLeft = androidx.compose.ui.geometry.Offset(x0 + stroke / 2, stroke / 2),
+                    size = androidx.compose.ui.geometry.Size((x1 - x0 - stroke).coerceAtLeast(1f), size.height - stroke),
+                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(12.dp.toPx()),
+                    style = androidx.compose.ui.graphics.drawscope.Stroke(stroke))
+                val r = androidx.compose.ui.geometry.CornerRadius(6.dp.toPx())
+                drawRoundRect(com.hbfr.figurinhas.ui.theme.Violet, androidx.compose.ui.geometry.Offset(x0, 0f),
+                    androidx.compose.ui.geometry.Size(handleW * 0.9f, size.height), r)
+                drawRoundRect(com.hbfr.figurinhas.ui.theme.Cyan, androidx.compose.ui.geometry.Offset(x1 - handleW * 0.9f, 0f),
+                    androidx.compose.ui.geometry.Size(handleW * 0.9f, size.height), r)
             }
         }
-        RangeSlider(
-            value = range,
-            valueRange = 0f..duration.toFloat(),
-            onValueChange = { v ->
-                var s = v.start; var e = v.endInclusive
-                val movedStart = s != range.start
-                if (e - s > maxLen) { if (movedStart) e = s + maxLen else s = e - maxLen }
-                if (e - s < minLen) { if (movedStart) s = e - minLen else e = s + minLen }
-                s = s.coerceIn(0f, duration.toFloat()); e = e.coerceIn(s, duration.toFloat())
-                range = s..e
-            },
-            onValueChangeFinished = { onTrim(range.start.toLong(), (range.endInclusive - range.start).toLong()) },
-        )
         Row(verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = {
-                val s = (start - AnimatedWebP.STEP_MS).coerceAtLeast(0L); onTrim(s, length)
+                val ns = (s - AnimatedWebP.STEP_MS).coerceAtLeast(0L); onTrim(ns, len)
             }) { Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, stringResource(R.string.frame_back)) }
             Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
-                Text("${stringResource(R.string.trim_start)} ${secs(range.start.toLong())} · ${stringResource(R.string.trim_length)} ${secs((range.endInclusive - range.start).toLong())}",
-                    style = MaterialTheme.typography.bodyMedium)
-                if (loading) Text(stringResource(R.string.loading_frames), style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant)
+                Text(stringResource(R.string.trim_hint), style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant)
+                if (loading) Text(stringResource(R.string.loading_frames), style = MaterialTheme.typography.bodySmall, color = cs.primary)
             }
             IconButton(onClick = {
-                val s = (start + AnimatedWebP.STEP_MS).coerceAtMost(duration - length).coerceAtLeast(0L); onTrim(s, length)
+                val ns = (s + AnimatedWebP.STEP_MS).coerceAtMost(duration - len).coerceAtLeast(0L); onTrim(ns, len)
             }) { Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, stringResource(R.string.frame_forward)) }
         }
-        Spacer(Modifier.height(4.dp))
         Row {
             Text(stringResource(R.string.speed), Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
             Text(String.format(Locale.getDefault(), "%.2gx", speed), style = MaterialTheme.typography.bodyMedium, color = cs.onSurfaceVariant)

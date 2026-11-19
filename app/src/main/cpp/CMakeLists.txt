@@ -15,7 +15,7 @@ set(WEBP_BUILD_LIBWEBPMUX ON CACHE BOOL "" FORCE)
 set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
 add_subdirectory(libwebp)
 
-add_library(figwebp SHARED animwebp.c)
+add_library(figwebp SHARED animwebp.c yuv.c)
 target_include_directories(figwebp PRIVATE libwebp/src)
 target_link_libraries(figwebp libwebpmux webp sharpyuv jnigraphics log)
 target_link_options(figwebp PRIVATE "-Wl,--gc-sections" "-Wl,-z,max-page-size=16384")

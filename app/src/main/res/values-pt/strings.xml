@@ -97,4 +97,5 @@
     <string name="err_post_no_media">O post não tem imagem nem vídeo, ou é privado.</string>
     <string name="err_too_large">Arquivo grande demais.</string>
     <string name="err_download">Não deu para baixar. Confira a internet e tente de novo.</string>
+    <string name="trim_hint">Arraste a janela ou as pontas. Setas: um quadro</string>
 </resources>

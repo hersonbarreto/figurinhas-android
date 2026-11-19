@@ -97,4 +97,5 @@
     <string name="err_post_no_media">La publicación no tiene imagen ni video, o es privada.</string>
     <string name="err_too_large">Archivo demasiado grande.</string>
     <string name="err_download">No se pudo descargar. Revisa la conexión e inténtalo de nuevo.</string>
+    <string name="trim_hint">Arrastra la ventana o sus bordes. Flechas: un cuadro</string>
 </resources>

@@ -11,6 +11,7 @@ import kotlinx.coroutines.ensureActive
 /** GIF lido com [Movie], que desenha qualquer instante sem decodificar tudo de uma vez. */
 @Suppress("DEPRECATION")
 class GifReader private constructor(private val movie: Movie) : FrameReader {
+    private val paint = android.graphics.Paint(android.graphics.Paint.FILTER_BITMAP_FLAG or android.graphics.Paint.ANTI_ALIAS_FLAG)
     override val durationMs = movie.duration().toLong()
     override val width = movie.width()
     override val height = movie.height()
@@ -21,7 +22,7 @@ class GifReader private constructor(private val movie: Movie) : FrameReader {
         val c = Canvas(bmp)
         c.scale(bmp.width / width.toFloat(), bmp.height / height.toFloat())
         movie.setTime((t % durationMs).toInt())
-        movie.draw(c, 0f, 0f)
+        movie.draw(c, 0f, 0f, paint)
     }
 
     override suspend fun read(startMs: Long, lengthMs: Long, stepMs: Long, maxSide: Int, onFrame: (Bitmap, Long) -> Unit) {

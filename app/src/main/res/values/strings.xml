@@ -97,4 +97,5 @@
     <string name="err_post_no_media">The post has no image or video, or it\'s private.</string>
     <string name="err_too_large">File too large.</string>
     <string name="err_download">Couldn\'t download. Check your connection and try again.</string>
+    <string name="trim_hint">Drag the window or its ends. Arrows: one frame</string>
 </resources>
