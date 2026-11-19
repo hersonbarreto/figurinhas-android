@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Figurinhas</string>
+    <string name="create_sticker">Create sticker</string>
+    <string name="empty_title">Your first sticker</string>
+    <string name="empty_body">Pick a photo from your gallery. The sticker comes out with no white border, ready for WhatsApp.</string>
+    <string name="pack_count">%1$d of 30 stickers</string>
+    <string name="add_to_whatsapp">Add to WhatsApp</string>
+    <string name="in_whatsapp">In WhatsApp</string>
+    <string name="update_whatsapp">Update in WhatsApp</string>
+    <string name="missing">%1$d more to send</string>
+    <string name="rename_pack">Edit name and author</string>
+    <string name="pack_name">Pack name</string>
+    <string name="pack_author">Author</string>
+    <string name="save">Save</string>
+    <string name="cancel">Cancel</string>
+    <string name="delete">Delete</string>
+    <string name="delete_sticker_q">Delete this sticker?</string>
+    <string name="close">Close</string>
+    <string name="no_whatsapp">WhatsApp is not installed on this phone.</string>
+    <string name="whatsapp_error">WhatsApp did not accept the pack: %1$s</string>
+    <string name="choose_whatsapp">Send to which WhatsApp?</string>
+    <string name="whatsapp">WhatsApp</string>
+    <string name="whatsapp_business">WhatsApp Business</string>
+    <string name="editor_title">New sticker</string>
+    <string name="editor_hint">Drag, use two fingers to zoom and rotate</string>
+    <string name="rotate">Rotate</string>
+    <string name="mirror">Mirror</string>
+    <string name="fit">Center</string>
+    <string name="top_text">Top text</string>
+    <string name="bottom_text">Bottom text</string>
+    <string name="emoji_on_sticker">Emoji on sticker</string>
+    <string name="move_image">Move photo</string>
+    <string name="move_emoji">Move emoji</string>
+    <string name="whatsapp_emojis">Emojis for WhatsApp search (up to 3)</string>
+    <string name="save_to">Save to</string>
+    <string name="save_sticker">Save sticker</string>
+    <string name="saving">Saving…</string>
+    <string name="load_error">Couldn\'t open this image.</string>
+    <string name="default_pack">My stickers</string>
+    <string name="default_pack_animated">My animated stickers</string>
+    <string name="numbered_pack" formatted="false">Pack %d</string>
+    <string name="back">Back</string>
+    <string name="more">More options</string>
+    <string name="saved">Sticker saved to “%1$s”</string>
+    <string name="gallery">Gallery</string>
+    <string name="kind_static">Static</string>
+    <string name="kind_animated">Animated</string>
+    <string name="see_all">See all</string>
+    <string name="see_less">See less</string>
+    <string name="send_pack">Send to WhatsApp</string>
+    <string name="tab_adjust">Adjust</string>
+    <string name="tab_text">Text</string>
+    <string name="tab_emoji">Emoji</string>
+    <string name="fit_whole">Whole</string>
+    <string name="fit_fill">Fill</string>
+    <string name="zoom">Zoom</string>
+    <plurals name="missing_whatsapp">
+        <item quantity="one">%d more sticker to send to WhatsApp</item>
+        <item quantity="many">%d more stickers to send to WhatsApp</item>
+        <item quantity="other">%d more stickers to send to WhatsApp</item>
+    </plurals>
+</resources>

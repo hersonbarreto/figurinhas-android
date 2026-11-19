@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Figurinhas</string>
+    <string name="create_sticker">Crear sticker</string>
+    <string name="empty_title">Tu primer sticker</string>
+    <string name="empty_body">Elige una foto de tu galería. El sticker sale sin borde blanco, listo para WhatsApp.</string>
+    <string name="pack_count">%1$d de 30 stickers</string>
+    <string name="add_to_whatsapp">Añadir a WhatsApp</string>
+    <string name="in_whatsapp">En WhatsApp</string>
+    <string name="update_whatsapp">Actualizar en WhatsApp</string>
+    <string name="missing">Faltan %1$d para enviar</string>
+    <string name="rename_pack">Editar nombre y autor</string>
+    <string name="pack_name">Nombre del paquete</string>
+    <string name="pack_author">Autor</string>
+    <string name="save">Guardar</string>
+    <string name="cancel">Cancelar</string>
+    <string name="delete">Borrar</string>
+    <string name="delete_sticker_q">¿Borrar este sticker?</string>
+    <string name="close">Cerrar</string>
+    <string name="no_whatsapp">WhatsApp no está instalado en este teléfono.</string>
+    <string name="whatsapp_error">WhatsApp no aceptó el paquete: %1$s</string>
+    <string name="choose_whatsapp">¿Enviar a cuál WhatsApp?</string>
+    <string name="whatsapp">WhatsApp</string>
+    <string name="whatsapp_business">WhatsApp Business</string>
+    <string name="editor_title">Nuevo sticker</string>
+    <string name="editor_hint">Arrastra, usa dos dedos para zoom y girar</string>
+    <string name="rotate">Girar</string>
+    <string name="mirror">Espejo</string>
+    <string name="fit">Centrar</string>
+    <string name="top_text">Texto arriba</string>
+    <string name="bottom_text">Texto abajo</string>
+    <string name="emoji_on_sticker">Emoji en el sticker</string>
+    <string name="move_image">Mover foto</string>
+    <string name="move_emoji">Mover emoji</string>
+    <string name="whatsapp_emojis">Emojis para la búsqueda de WhatsApp (hasta 3)</string>
+    <string name="save_to">Guardar en</string>
+    <string name="save_sticker">Guardar sticker</string>
+    <string name="saving">Guardando…</string>
+    <string name="load_error">No se pudo abrir esta imagen.</string>
+    <string name="default_pack">Mis stickers</string>
+    <string name="default_pack_animated">Mis animados</string>
+    <string name="numbered_pack" formatted="false">Paquete %d</string>
+    <string name="back">Volver</string>
+    <string name="more">Más opciones</string>
+    <string name="saved">Sticker guardado en “%1$s”</string>
+    <string name="gallery">Galería</string>
+    <string name="kind_static">Estáticos</string>
+    <string name="kind_animated">Animados</string>
+    <string name="see_all">Ver todos</string>
+    <string name="see_less">Ver menos</string>
+    <string name="send_pack">Enviar a WhatsApp</string>
+    <string name="tab_adjust">Ajustar</string>
+    <string name="tab_text">Texto</string>
+    <string name="tab_emoji">Emoji</string>
+    <string name="fit_whole">Entera</string>
+    <string name="fit_fill">Rellenar</string>
+    <string name="zoom">Zoom</string>
+    <plurals name="missing_whatsapp">
+        <item quantity="one">Falta %d sticker para enviar a WhatsApp</item>
+        <item quantity="many">Faltan %d stickers para enviar a WhatsApp</item>
+        <item quantity="other">Faltan %d stickers para enviar a WhatsApp</item>
+    </plurals>
+</resources>

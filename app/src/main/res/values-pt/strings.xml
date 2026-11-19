@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Figurinhas</string>
+    <string name="create_sticker">Criar figurinha</string>
+    <string name="empty_title">Sua primeira figurinha</string>
+    <string name="empty_body">Escolha uma foto da galeria. A figurinha sai sem borda branca, pronta pro WhatsApp.</string>
+    <string name="pack_count">%1$d de 30 figurinhas</string>
+    <string name="add_to_whatsapp">Adicionar ao WhatsApp</string>
+    <string name="in_whatsapp">No WhatsApp</string>
+    <string name="update_whatsapp">Atualizar no WhatsApp</string>
+    <string name="missing">Faltam %1$d para enviar</string>
+    <string name="rename_pack">Editar nome e autor</string>
+    <string name="pack_name">Nome do pacote</string>
+    <string name="pack_author">Autor</string>
+    <string name="save">Salvar</string>
+    <string name="cancel">Cancelar</string>
+    <string name="delete">Apagar</string>
+    <string name="delete_sticker_q">Apagar esta figurinha?</string>
+    <string name="close">Fechar</string>
+    <string name="no_whatsapp">O WhatsApp não está instalado neste celular.</string>
+    <string name="whatsapp_error">O WhatsApp não aceitou o pacote: %1$s</string>
+    <string name="choose_whatsapp">Enviar para qual WhatsApp?</string>
+    <string name="whatsapp">WhatsApp</string>
+    <string name="whatsapp_business">WhatsApp Business</string>
+    <string name="editor_title">Nova figurinha</string>
+    <string name="editor_hint">Arraste, use dois dedos para zoom e girar</string>
+    <string name="rotate">Girar</string>
+    <string name="mirror">Espelhar</string>
+    <string name="fit">Centralizar</string>
+    <string name="top_text">Texto em cima</string>
+    <string name="bottom_text">Texto embaixo</string>
+    <string name="emoji_on_sticker">Emoji na figurinha</string>
+    <string name="move_image">Mover foto</string>
+    <string name="move_emoji">Mover emoji</string>
+    <string name="whatsapp_emojis">Emojis para a busca do WhatsApp (até 3)</string>
+    <string name="save_to">Salvar em</string>
+    <string name="save_sticker">Salvar figurinha</string>
+    <string name="saving">Salvando…</string>
+    <string name="load_error">Não deu para abrir essa imagem.</string>
+    <string name="default_pack">Minhas figurinhas</string>
+    <string name="default_pack_animated">Minhas animadas</string>
+    <string name="numbered_pack" formatted="false">Pacote %d</string>
+    <string name="back">Voltar</string>
+    <string name="more">Mais opções</string>
+    <string name="saved">Figurinha salva em “%1$s”</string>
+    <string name="gallery">Galeria</string>
+    <string name="kind_static">Estáticas</string>
+    <string name="kind_animated">Animadas</string>
+    <string name="see_all">Ver todas</string>
+    <string name="see_less">Ver menos</string>
+    <string name="send_pack">Mandar ao WhatsApp</string>
+    <string name="tab_adjust">Ajustar</string>
+    <string name="tab_text">Texto</string>
+    <string name="tab_emoji">Emoji</string>
+    <string name="fit_whole">Inteira</string>
+    <string name="fit_fill">Preencher</string>
+    <string name="zoom">Zoom</string>
+    <plurals name="missing_whatsapp">
+        <item quantity="one">Falta %d figurinha para mandar ao WhatsApp</item>
+        <item quantity="many">Faltam %d figurinhas para mandar ao WhatsApp</item>
+        <item quantity="other">Faltam %d figurinhas para mandar ao WhatsApp</item>
+    </plurals>
+</resources>
