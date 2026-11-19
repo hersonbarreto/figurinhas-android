@@ -59,7 +59,8 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
+        // App sempre escuro: ícones claros na barra de status e de navegação.
+        enableEdgeToEdge(androidx.activity.SystemBarStyle.dark(android.graphics.Color.TRANSPARENT), androidx.activity.SystemBarStyle.dark(android.graphics.Color.TRANSPARENT))
         if (savedInstanceState == null) sharedIntent = intent.takeIf { it.action == Intent.ACTION_SEND }
         Importer.cleanup(this)
         val store = (application as FigurinhasApp).store
@@ -126,7 +127,9 @@ class MainActivity : ComponentActivity() {
                     }
                 }
 
-                Box(Modifier.fillMaxSize().background(Background)) {
+                // Surface define a cor do texto (clara) para tudo que está dentro.
+                androidx.compose.material3.Surface(Modifier.fillMaxSize(), color = Background, contentColor = androidx.compose.material3.MaterialTheme.colorScheme.onBackground) {
+                Box(Modifier.fillMaxSize()) {
                     Column(Modifier.fillMaxSize().statusBarsPadding()) {
                         val input = editing
                         if (input == null) {
@@ -157,6 +160,7 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                     SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).navigationBarsPadding())
+                }
                 }
 
                 if (busy) {
